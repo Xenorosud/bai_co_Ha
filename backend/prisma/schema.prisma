@@ -1,0 +1,423 @@
+// Prisma Schema cho Hệ thống Quản lý Nhà hàng Restora
+// Database: PostgreSQL
+// ORM: Prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// 1. BẢNG NGƯỜI DÙNG (Users)
+// ============================================
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  passwordHash String
+  role      Role     @default(CUSTOMER)
+  status    UserStatus @default(ACTIVE)
+
+  // Mối quan hệ
+  employee  Employee?
+  orders    Order[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("users")
+}
+
+enum Role {
+  ADMIN
+  MANAGER
+  SERVER
+  CUSTOMER
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+}
+
+// ============================================
+// 2. BẢNG NHÂN VIÊN (Employees)
+// ============================================
+model Employee {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  name      String
+  phone     String
+  hireDate  DateTime
+  permissions Json   // Lưu trữ các quyền dưới dạng JSON
+  status    EmployeeStatus @default(ACTIVE)
+
+  // Mối quan hệ
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orders    Order[]
+  transactions Transaction[]
+  auditLogs AuditLog[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("employees")
+}
+
+enum EmployeeStatus {
+  ACTIVE
+  INACTIVE
+}
+
+// ============================================
+// 3. BẢNG LOẠI MÓN ĂN (DishTypes)
+// ============================================
+model DishType {
+  id          Int     @id @default(autoincrement())
+  name        String  @unique
+  description String?
+
+  // Mối quan hệ
+  dishes      Dish[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("dish_types")
+}
+
+// ============================================
+// 4. BẢNG MÓN ĂN (Dishes)
+// ============================================
+model Dish {
+  id            Int     @id @default(autoincrement())
+  name          String
+  description   String
+  price         Decimal @db.Decimal(10, 2)
+  image         String  // URL hình ảnh
+  typeId        Int
+  availability  Boolean @default(true)
+
+  // Mối quan hệ
+  dishType      DishType @relation(fields: [typeId], references: [id], onDelete: Cascade)
+  orderItems    OrderItem[]
+  recipeItems   RecipeItem[]
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("dishes")
+  @@index([typeId])
+}
+
+// ============================================
+// 5. BẢNG NHÀ CUNG CẤP (Suppliers)
+// ============================================
+model Supplier {
+  id            Int     @id @default(autoincrement())
+  name          String
+  phone         String
+  email         String
+  address       String
+  city          String
+  state         String
+  zipCode       String
+
+  // Mối quan hệ
+  inventoryItems InventoryItem[]
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("suppliers")
+}
+
+// ============================================
+// 6. BẢNG KHOÁ (InventoryItems)
+// ============================================
+model InventoryItem {
+  id            Int     @id @default(autoincrement())
+  name          String
+  category      InventoryCategory
+  quantity      Decimal @db.Decimal(10, 2)
+  unit          String  // lbs, liters, heads, bottles, quarts, etc.
+  minStock      Decimal @db.Decimal(10, 2)
+  supplierId    Int?
+  lastRestocked DateTime
+
+  // Mối quan hệ
+  supplier      Supplier? @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  recipeItems   RecipeItem[]
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("inventory_items")
+  @@index([supplierId])
+}
+
+enum InventoryCategory {
+  MEAT
+  PASTA
+  DAIRY
+  VEGETABLES
+  SEAFOOD
+  BAKING
+  OILS
+  BEVERAGES
+}
+
+// ============================================
+// 7. BẢNG CÔNG THỨC (RecipeItems)
+// ============================================
+model RecipeItem {
+  id              Int @id @default(autoincrement())
+  dishId          Int
+  inventoryItemId Int
+  quantityNeeded  Decimal @db.Decimal(10, 2)
+  unitUsed        String
+
+  // Mối quan hệ
+  dish            Dish @relation(fields: [dishId], references: [id], onDelete: Cascade)
+  inventoryItem   InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Cascade)
+
+  @@unique([dishId, inventoryItemId])
+  @@map("recipe_items")
+  @@index([inventoryItemId])
+}
+
+// ============================================
+// 8. BẢNG BÀN (Tables)
+// ============================================
+model Table {
+  id          Int     @id @default(autoincrement())
+  number      Int     @unique
+  capacity    Int
+  status      TableStatus @default(EMPTY)
+
+  // Mối quan hệ
+  reservations Reservation[]
+  orders      Order[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("tables")
+}
+
+enum TableStatus {
+  EMPTY
+  BEING_USED
+  RESERVED
+}
+
+// ============================================
+// 9. BẢNG ĐẶT BÀN (Reservations)
+// ============================================
+model Reservation {
+  id               Int     @id @default(autoincrement())
+  tableId          Int?
+  customerName     String
+  phone           String
+  email           String
+  reservationDate DateTime
+  reservationTime DateTime
+  guestCount      Int
+  specialRequests String?
+  higherTable     Boolean @default(false)
+  status          ReservationStatus @default(PENDING)
+  submittedAt     DateTime @default(now())
+  approvedAt      DateTime?
+
+  // Mối quan hệ
+  table           Table? @relation(fields: [tableId], references: [id], onDelete: SetNull)
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("reservations")
+  @@index([tableId])
+  @@index([reservationDate])
+}
+
+enum ReservationStatus {
+  PENDING
+  APPROVED
+  DENIED
+  COMPLETED
+  CANCELLED
+}
+
+// ============================================
+// 10. BẢNG ĐƠN HÀNG (Orders)
+// ============================================
+model Order {
+  id              Int     @id @default(autoincrement())
+  orderId         String  @unique // Format: ORD-XXXXX
+  tableId         Int?
+  customerId      String?
+  employeeId      String
+  orderStatus     OrderStatus @default(PENDING)
+  subtotal        Decimal @db.Decimal(10, 2)
+  tax             Decimal @db.Decimal(10, 2)
+  total           Decimal @db.Decimal(10, 2)
+  deliveryType    DeliveryType @default(DINE_IN)
+  deliveryAddress String?
+  orderDate       DateTime
+  orderTime       DateTime
+  completedAt     DateTime?
+
+  // Mối quan hệ
+  table           Table? @relation(fields: [tableId], references: [id], onDelete: SetNull)
+  customer        User? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  employee        Employee @relation(fields: [employeeId], references: [id])
+  orderItems      OrderItem[]
+  invoice         Invoice?
+  transactions    Transaction[]
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("orders")
+  @@index([tableId])
+  @@index([customerId])
+  @@index([employeeId])
+  @@index([orderDate])
+}
+
+enum OrderStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  CANCELLED
+}
+
+enum DeliveryType {
+  DINE_IN
+  DELIVERY
+  TAKEOUT
+}
+
+// ============================================
+// 11. BẢNG CHI TIẾT ĐƠN HÀNG (OrderItems)
+// ============================================
+model OrderItem {
+  id                  Int @id @default(autoincrement())
+  orderId             Int
+  dishId              Int
+  quantity            Int
+  unitPrice           Decimal @db.Decimal(10, 2)
+  specialInstructions String?
+
+  // Mối quan hệ
+  order               Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  dish                Dish @relation(fields: [dishId], references: [id])
+
+  createdAt           DateTime @default(now())
+
+  @@map("order_items")
+  @@index([orderId])
+  @@index([dishId])
+}
+
+// ============================================
+// 12. BẢNG HÓA ĐƠN (Invoices)
+// ============================================
+model Invoice {
+  id              Int     @id @default(autoincrement())
+  invoiceId       String  @unique // Format: INV-XXXXX
+  orderId         Int     @unique
+  customerName    String
+  subtotal        Decimal @db.Decimal(10, 2)
+  tax             Decimal @db.Decimal(10, 2)
+  total           Decimal @db.Decimal(10, 2)
+  paymentStatus   PaymentStatus @default(UNPAID)
+  invoiceDate     DateTime
+  dueDate         DateTime?
+
+  // Mối quan hệ
+  order           Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  transactions    Transaction[]
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("invoices")
+  @@index([orderId])
+  @@index([paymentStatus])
+}
+
+enum PaymentStatus {
+  PAID
+  UNPAID
+  OVERDUE
+}
+
+// ============================================
+// 13. BẢNG GIAO DỊCH (Transactions)
+// ============================================
+model Transaction {
+  id                Int     @id @default(autoincrement())
+  transactionId     String  @unique // Format: TXN-XXXXX
+  invoiceId         Int?
+  orderId           Int
+  amount            Decimal @db.Decimal(10, 2)
+  paymentMethod     PaymentMethod
+  transactionStatus TransactionStatus @default(COMPLETED)
+  processedBy       String
+  transactionDate   DateTime
+  transactionTime   DateTime
+  refundAmount      Decimal @db.Decimal(10, 2) @default(0)
+
+  // Mối quan hệ
+  invoice           Invoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  order             Order @relation(fields: [orderId], references: [id])
+  employee          Employee @relation(fields: [processedBy], references: [id])
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@map("transactions")
+  @@index([invoiceId])
+  @@index([orderId])
+  @@index([processedBy])
+  @@index([transactionDate])
+}
+
+enum PaymentMethod {
+  CASH
+  CREDIT_CARD
+  DEBIT_CARD
+  ONLINE
+}
+
+enum TransactionStatus {
+  COMPLETED
+  PENDING
+  REFUNDED
+  FAILED
+}
+
+// ============================================
+// 14. BẢNG NHẬT KÝ KIỂM TOÁN (AuditLogs)
+// ============================================
+model AuditLog {
+  id          String   @id @default(cuid())
+  employeeId  String
+  action      String
+  entityType  String
+  entityId    String
+  changes     Json     // Lưu trữ các thay đổi dưới dạng JSON
+
+  // Mối quan hệ
+  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime @default(now())
+
+  @@map("audit_logs")
+  @@index([employeeId])
+  @@index([createdAt])
+}

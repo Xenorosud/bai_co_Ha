@@ -1,0 +1,333 @@
+/**
+ * File Main - Ứng dụng Express chính
+ * Tệp này khởi tạo máy chủ Express với tất cả các routes và middleware
+ */
+
+import express, { Application, Request, Response, NextFunction } from 'express'
+import cors from 'cors'
+import dotenv from 'dotenv'
+// import { PrismaClient } from '@prisma/client'
+
+// Import routes - TEMPORARILY COMMENTED OUT FOR MOCK APIs
+// import authRoutes from './routes/auth.routes'
+// import dishesRoutes from './routes/dishes.routes'
+// import tablesRoutes from './routes/tables.routes'
+// import ordersRoutes from './routes/orders.routes'
+// import reservationsRoutes from './routes/reservations.routes'
+// import inventoryRoutes from './routes/inventory.routes'
+// import transactionsRoutes from './routes/transactions.routes'
+// import employeesRoutes from './routes/employees.routes'
+
+// Import middleware
+import { errorHandler, notFoundHandler } from './middleware/errorHandler'
+
+// Tải biến môi trường từ file .env
+dotenv.config()
+
+// Khởi tạo Prisma Client
+// const prisma = new PrismaClient()
+
+// Khởi tạo ứng dụng Express
+const app: Application = express()
+const PORT = process.env.PORT || 3001
+const CORS_ORIGIN = process.env.CORS_ORIGIN || 'http://localhost:5173'
+
+// ============================================
+// MIDDLEWARE - CẤU HÌNH MIDDLEWARE TOÀN CỤC
+// ============================================
+
+// CORS Configuration - Cấu hình CORS
+app.use(cors({
+  origin: CORS_ORIGIN,
+  credentials: true
+}))
+
+// Body Parser - Phân tích body request
+app.use(express.json({ limit: '10mb' }))
+app.use(express.urlencoded({ limit: '10mb', extended: true }))
+
+// ============================================
+// ROUTES CƠ BẢN & KIỂM TRA TRẠNG THÁI
+// ============================================
+
+// Health Check Route - Kiểm tra trạng thái máy chủ
+app.get('/api/health', (req: Request, res: Response) => {
+  res.json({
+    status: 'OK',
+    message: 'Restora Backend đang chạy bình thường',
+    timestamp: new Date().toISOString(),
+    version: '1.0.0',
+  })
+})
+
+// Simple test route
+app.get('/api/test', (req: Request, res: Response) => {
+  res.json({
+    status: 'OK',
+    message: 'Test route works!',
+    timestamp: new Date().toISOString(),
+  })
+})
+
+// ============================================
+// MOCK API ROUTES - TEMPORARY MOCK DATA
+// ============================================
+
+// Mock Dishes API
+app.get('/api/dishes', (req: Request, res: Response) => {
+  const mockDishes = [
+    {
+      id: 1,
+      name: 'Phở Bò Tái',
+      description: 'Phở bò truyền thống với thịt bò tái',
+      price: 85000,
+      image: 'https://images.unsplash.com/photo-1555126634-323283e090fa?w=500',
+      typeId: 2,
+      availability: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      dishType: { id: 2, name: 'Món chính' }
+    },
+    {
+      id: 2,
+      name: 'Gỏi cuốn tôm thịt',
+      description: 'Gỏi cuốn tươi ngon với tôm và thịt',
+      price: 45000,
+      image: 'https://images.unsplash.com/photo-1569718212165-3a8278d5f624?w=500',
+      typeId: 1,
+      availability: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      dishType: { id: 1, name: 'Khai vị' }
+    }
+  ];
+
+  res.json({
+    status: 'OK',
+    message: 'Lấy danh sách thành công',
+    data: mockDishes,
+    meta: {
+      page: 1,
+      limit: 20,
+      total: mockDishes.length,
+      totalPages: 1,
+      hasMore: false
+    }
+  });
+});
+
+// Mock Orders API
+app.get('/api/orders', (req: Request, res: Response) => {
+  const mockOrders = [
+    {
+      id: 1,
+      orderId: 'ORD-001',
+      customerName: 'Nguyễn Văn A',
+      total: 150000,
+      orderStatus: 'PENDING',
+      createdAt: new Date(),
+      tableNumber: '5'
+    }
+  ];
+
+  res.json({
+    status: 'OK',
+    data: mockOrders,
+    meta: { page: 1, limit: 20, total: 1, totalPages: 1, hasMore: false }
+  });
+});
+
+// Mock Reservations API
+app.get('/api/reservations', (req: Request, res: Response) => {
+  const mockReservations = [
+    {
+      id: 1,
+      customerName: 'Trần Thị B',
+      reservationDate: '2026-04-07',
+      reservationTime: '19:00',
+      guestCount: 4,
+      status: 'PENDING',
+      submittedAt: new Date()
+    }
+  ];
+
+  res.json({
+    status: 'OK',
+    data: mockReservations,
+    meta: { page: 1, limit: 20, total: 1, totalPages: 1, hasMore: false }
+  });
+});
+
+// Mock Tables API
+app.get('/api/tables', (req: Request, res: Response) => {
+  const mockTables = [
+    {
+      id: 1,
+      tableNumber: '1',
+      capacity: 4,
+      status: 'EMPTY',
+      location: 'Tầng 1'
+    },
+    {
+      id: 2,
+      tableNumber: '2',
+      capacity: 2,
+      status: 'OCCUPIED',
+      location: 'Tầng 1'
+    }
+  ];
+
+  res.json({
+    status: 'OK',
+    data: mockTables,
+    meta: { page: 1, limit: 20, total: 2, totalPages: 1, hasMore: false }
+  });
+});
+
+// Mock Inventory API
+app.get('/api/inventory', (req: Request, res: Response) => {
+  const mockInventory = [
+    {
+      id: 1,
+      itemName: 'Thịt bò',
+      currentStock: 50,
+      minStock: 20,
+      status: 'GOOD',
+      category: 'Thịt'
+    },
+    {
+      id: 2,
+      itemName: 'Cà chua',
+      currentStock: 5,
+      minStock: 10,
+      status: 'LOW',
+      category: 'Rau củ'
+    }
+  ];
+
+  res.json({
+    status: 'OK',
+    data: mockInventory,
+    meta: { page: 1, limit: 20, total: 2, totalPages: 1, hasMore: false }
+  });
+});
+
+// Mock Employees API
+app.get('/api/employees', (req: Request, res: Response) => {
+  const mockEmployees = [
+    {
+      id: '1',
+      name: 'Lê Văn C',
+      phone: '0123456789',
+      status: 'ACTIVE',
+      permissions: {}
+    }
+  ];
+
+  res.json({
+    status: 'OK',
+    data: mockEmployees,
+    meta: { page: 1, limit: 20, total: 1, totalPages: 1, hasMore: false }
+  });
+});
+
+// Mock Transactions API
+app.get('/api/transactions', (req: Request, res: Response) => {
+  const mockTransactions = [
+    {
+      id: 1,
+      transactionId: 'TXN-001',
+      amount: 150000,
+      transactionStatus: 'COMPLETED',
+      transactionDate: '2026-04-06'
+    }
+  ];
+
+  res.json({
+    status: 'OK',
+    data: mockTransactions,
+    meta: { page: 1, limit: 20, total: 1, totalPages: 1, hasMore: false }
+  });
+});
+
+// ============================================
+// API ROUTES - CÁC ROUTE API - TEMPORARILY COMMENTED OUT FOR MOCK
+// ============================================
+
+// Auth Routes - Xác thực
+// app.use('/api/auth', authRoutes)
+
+// Dishes Routes - Thực phẩm
+// app.use('/api/dishes', dishesRoutes)
+
+// Tables Routes - Bàn
+// app.use('/api/tables', tablesRoutes)
+
+// Orders Routes - Đơn hàng
+// app.use('/api/orders', ordersRoutes)
+
+// Reservations Routes - Đặt bàn
+// app.use('/api/reservations', reservationsRoutes)
+
+// Inventory Routes - Kho hàng
+// app.use('/api/inventory', inventoryRoutes)
+
+// Transactions Routes - Thanh toán
+// app.use('/api/transactions', transactionsRoutes)
+
+// Employees Routes - Nhân viên
+// app.use('/api/employees', employeesRoutes)
+
+// ============================================
+// 404 NOT FOUND HANDLER - Xử lý khi không tìm thấy endpoint
+// ============================================
+
+app.use(notFoundHandler)
+
+// ============================================
+// ERROR HANDLING MIDDLEWARE - Xử lý lỗi toàn cầu (phải ở cuối)
+// ============================================
+
+app.use(errorHandler)
+
+// ============================================
+// SERVER STARTUP - Khởi động máy chủ
+// ============================================
+
+const startServer = async () => {
+  try {
+    // Kiểm tra kết nối cơ sở dữ liệu
+    // await prisma.$connect()
+    console.log('✅ Mock API ready - No database needed')
+
+    // Khởi động máy chủ
+    app.listen(PORT, () => {
+      console.log(`
+╔════════════════════════════════════════╗
+║  🍽️  Restora Backend - Nhà hàng       ║
+╚════════════════════════════════════════╝
+
+🚀 Máy chủ đang chạy: http://localhost:${PORT}
+📊 Môi trường: ${process.env.NODE_ENV || 'development'}
+🔄 CORS Origin: ${CORS_ORIGIN}
+
+Nhấn Ctrl+C để dừng máy chủ...
+      `)
+    })
+  } catch (error) {
+    console.error('❌ Không thể khởi động máy chủ:', error)
+    process.exit(1)
+  }
+}
+
+// Xử lý graceful shutdown - Dừng máy chủ một cách đẹp
+process.on('SIGINT', async () => {
+  console.log('\n🛑 Dừng máy chủ...')
+  // await prisma.$disconnect()
+  process.exit(0)
+})
+
+// Khởi động ứng dụng
+startServer()
+
+export default app
