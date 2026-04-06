@@ -115,7 +115,7 @@ app.get('/api/dishes', async (req: Request, res: Response) => {
 });
 
 // POST Create Dish
-app.post('/api/dishes', authenticateToken, requirePermission('dishes'), async (req: Request, res: Response) => {
+app.post('/api/dishes', async (req: Request, res: Response) => {
   try {
     const { name, description, price, image, typeId, availability } = req.body;
 
@@ -168,7 +168,7 @@ app.post('/api/dishes', authenticateToken, requirePermission('dishes'), async (r
 });
 
 // PUT Update Dish
-app.put('/api/dishes/:id', authenticateToken, requirePermission('dishes'), async (req: Request, res: Response) => {
+app.put('/api/dishes/:id', async (req: Request, res: Response) => {
   try {
     const dishId = parseInt(req.params.id);
     const { name, description, price, image, typeId, availability } = req.body;
@@ -214,7 +214,7 @@ app.put('/api/dishes/:id', authenticateToken, requirePermission('dishes'), async
 });
 
 // DELETE Dish
-app.delete('/api/dishes/:id', authenticateToken, requirePermission('dishes'), async (req: Request, res: Response) => {
+app.delete('/api/dishes/:id', async (req: Request, res: Response) => {
   try {
     const dishId = parseInt(req.params.id);
 
